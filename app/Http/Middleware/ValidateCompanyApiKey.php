@@ -14,16 +14,33 @@ class ValidateCompanyApiKey
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $header = $request->header('Authorization');
+        // 1. Try Laravel's bearerToken() which checks Authorization, HTTP_AUTHORIZATION, and REDIRECT_HTTP_AUTHORIZATION
+        $plainTextKey = $request->bearerToken();
 
-        if (!$header || !str_starts_with($header, 'Bearer ')) {
+        // 2. If null, check raw headers and server environment
+        if (!$plainTextKey) {
+            $header = $request->header('Authorization') 
+                ?? $request->server('HTTP_AUTHORIZATION') 
+                ?? $request->server('REDIRECT_HTTP_AUTHORIZATION');
+
+            if ($header && str_starts_with($header, 'Bearer ')) {
+                $plainTextKey = trim(substr($header, 7));
+            }
+        }
+
+        // 3. Fallback to X-Api-Key header (often used by clients and never stripped by proxies/FastCGI)
+        if (!$plainTextKey) {
+            $plainTextKey = $request->header('X-Api-Key') ?? $request->header('x-api-key');
+        }
+
+        if (!$plainTextKey) {
             return response()->json([
                 'success' => false,
-                'error' => 'Unauthorized: Missing or invalid Authorization header. Expected Bearer token format.',
+                'error' => 'Unauthorized: Missing or invalid Authorization header. Expected Bearer token format or X-Api-Key header.',
             ], 401);
         }
 
-        $plainTextKey = trim(substr($header, 7));
+        $plainTextKey = trim($plainTextKey);
         $apiKey = CompanyApiKey::verifyKey($plainTextKey);
 
         if (!$apiKey) {
