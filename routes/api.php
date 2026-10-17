@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('v1')->middleware([ValidateCompanyApiKey::class])->group(function () {
+$defineRoutes = function () {
     // Tasks Operations
     Route::get('/tasks', [TaskApiController::class, 'index']);
     Route::post('/tasks', [TaskApiController::class, 'store']);
@@ -21,4 +21,8 @@ Route::prefix('v1')->middleware([ValidateCompanyApiKey::class])->group(function 
     // Wallets & Settlements Inquiries
     Route::get('/wallets/funding', [WalletApiController::class, 'funding']);
     Route::get('/wallets/debts', [WalletApiController::class, 'debts']);
-});
+};
+
+// Register for both /v1 and /api/v1 to prevent any mismatch
+Route::prefix('v1')->middleware([ValidateCompanyApiKey::class])->group($defineRoutes);
+Route::prefix('api/v1')->middleware([ValidateCompanyApiKey::class])->group($defineRoutes);
